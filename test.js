@@ -110,7 +110,7 @@ async function ConvertChunkDataFromFile(chunkFile) {
 
 
     return {
-        "folderPath": `./world/${folder1}/${folder2}/`,
+        "folderPath": `./test/${folder1}/${folder2}/`,
         "filename" : filename,
         "fileContents" : formatted
     };
@@ -132,35 +132,108 @@ async function StoreChunkData(folderPath, filename, fileContents) {
         console.log("[+] Successfully created Path and stored file!");
 
     } catch (error) {
-        console.log("[+] Failed to creat Path and store file with error: " + error);
+        console.log("[+] Failed to create Path and store file with error: " + error);
+        return;
+    }
+}
+
+function writeFileNoOverwrite(filename, content) {
+    fs.writeFile(filename, "some data", { flag: "wx" }, function(err) {
+        if (err) {
+            filename = filename + "_";
+            writeFileNoOverwrite(filename, content);
+        }
+    });
+}
+
+async function ConvertlvlFile(lvlFile) {
+    let data = await nbt.deserializeCompressedNBT( fs.readFileSync(lvlFile) );
+
+    let formatted = new Object();
+    if (data.Data) {
+        formatted = data;
+    }
+    else {
+        formatted.Data = data;
+    }
+
+
+    let compressedFileContents;
+    try {
+        var dir = `./test/`;
+    
+        if (!fs.existsSync(dir)){
+            fs.mkdirSync(dir, { recursive: true });
+        }
+
+        compressedFileContents = zlib.gzipSync( nbt.serializeNBT(formatted) )
+
+        fs.writeFileSync(dir + 'level.dat', compressedFileContents);
+
+        console.log("[+] Successfully created level.dat file!");
+
+    } catch (error) {
+        console.log("[+] Failed to create level.dat file with error: " + error);
+        return;
+    }
+
+    return compressedFileContents;
+}
+
+async function lvldatToOld(compressedFileContents) {
+
+    try {
+        var dir = `./test/`;
+    
+        if (!fs.existsSync(dir)){
+            fs.mkdirSync(dir, { recursive: true });
+        }
+    
+        fs.writeFileSync(dir + 'level.dat_old', compressedFileContents);
+
+        console.log("[+] Successfully created level.dat_old file!");
+
+    } catch (error) {
+        console.log("[+] Failed to create level.dat_old file with error: " + error);
         return;
     }
 }
 
 async function main() {
-    // await GetXZChunkFile('./Chunk file read tests/AZ0Y0Z0ZIH');
-    // await GetXZChunkFile('./Chunk file read tests/c.0.0.dat');
 
-    // await IncludeMCFormatChunkFile('./Chunk file read tests/AZ0Y0Z0ZIH');
-    // await IncludeMCFormatChunkFile('./Chunk file read tests/c.0.0.dat');
+    try {
+        fs.rmSync('./test/', { recursive: true })
+    }
+    catch { }
+
+    // await GetXZChunkFile('./test files/AZ0Y0Z0ZIH');
+    // await GetXZChunkFile('./test files/c.0.0.dat');
+
+    // await IncludeMCFormatChunkFile('./test files/AZ0Y0Z0ZIH');
+    // await IncludeMCFormatChunkFile('./test files/c.0.0.dat');
 
     console.log("==EAGERCRAFT==");
-    let chunkDataE = await ConvertChunkDataFromFile('./Chunk file read tests/AZ0Y0Z0ZIH');
+    let chunkDataE = await ConvertChunkDataFromFile('./test files/AZ0Y0Z0ZIH');
     await StoreChunkData(
         chunkDataE["folderPath"],
         chunkDataE["filename"],
         chunkDataE["fileContents"]
     );
+    let lvlDataE = await ConvertlvlFile('./test files/lvl');
+    await lvldatToOld(lvlDataE);
 
     console.log("==EAGERCRAFT==");
-    console.log("==BETA-1.2==");
-    let chunkDataB = await ConvertChunkDataFromFile('./Chunk file read tests/c.0.0.dat');
+    console.log("===BETA-1.2===");
+    let chunkDataB = await ConvertChunkDataFromFile('./test files/c.0.0.dat');
     await StoreChunkData(
         chunkDataB["folderPath"],
         chunkDataB["filename"],
         chunkDataB["fileContents"]
     );
-    console.log("==BETA-1.2==");
+    let lvlDataB = await ConvertlvlFile('./test files/level.dat');
+    await lvldatToOld(lvlDataB);
+
+    console.log("===BETA-1.2===");
 
     console.log("complete!!");
 }

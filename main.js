@@ -1,30 +1,6 @@
 const nbt = require('binary-nbt'), fs = require('fs'), zlib = require('zlib'), path = require("path");
 
 
-// BIGIN THIRD PARTY FUNCTIONS //
-
-
-// https://coderrocketfuel.com/article/recursively-list-all-the-files-in-a-directory-using-node-js
-const GetAllFiles = function(dirPath, arrayOfFiles) {
-    files = fs.readdirSync(dirPath)
-  
-    arrayOfFiles = arrayOfFiles || []
-  
-    files.forEach(function(file) {
-        if (fs.statSync(dirPath + "/" + file).isDirectory()) {
-            arrayOfFiles = GetAllFiles(dirPath + "/" + file, arrayOfFiles)
-        } else {
-            arrayOfFiles.push(path.join(__dirname, dirPath, "/", file))
-        }
-    })
-  
-    return arrayOfFiles
-}
-
-// END THIRD PARTY FUNCTIONS //
-
-
-
 // BIGIN FUNCTIONS //
 
 async function ConvertChunkDataFromFile(chunkFile) {
@@ -60,9 +36,9 @@ async function ConvertChunkDataFromFile(chunkFile) {
     };
 };
 
-async function StoreChunkData(folderPath, filename, fileContents) {
+async function StoreData(folderPath, filename, fileContents) {
 
-    var dir = `${folderPath}`;
+    let dir = `${folderPath}`;
 
     if (!fs.existsSync(dir)){
         fs.mkdirSync(dir, { recursive: true });
@@ -74,19 +50,109 @@ async function StoreChunkData(folderPath, filename, fileContents) {
 
 }
 
-// END SOME FUNCITONS //
+async function ConvertlvlFile(lvlFile) {
+    let data = await nbt.deserializeCompressedNBT( fs.readFileSync(lvlFile) );
+
+    let formatted = new Object();
+    if (data.Data) {
+        formatted = data;
+    }
+    else {
+        formatted.Data = data;
+    }
+
+
+    let compressedFileContents;
+    try {
+        var dir = `${outputFolder}`;
+    
+        if (!fs.existsSync(dir)){
+            fs.mkdirSync(dir, { recursive: true });
+        }
+
+        compressedFileContents = zlib.gzipSync( nbt.serializeNBT(formatted) )
+
+        fs.writeFileSync(dir + 'level.dat', compressedFileContents);
+
+        console.log("[+] Successfully created level.dat file!");
+
+    } catch (error) {
+        console.log("[+] Failed to create level.dat file with error: " + error);
+        return;
+    }
+
+    return compressedFileContents;
+}
+
+async function lvldatToOld(compressedFileContents) {
+
+    try {
+        var dir = `${outputFolder}`;
+    
+        if (!fs.existsSync(dir)){
+            fs.mkdirSync(dir, { recursive: true });
+        }
+    
+        fs.writeFileSync(dir + 'level.dat_old', compressedFileContents);
+
+        console.log("[+] Successfully created level.dat_old file!");
+
+    } catch (error) {
+        console.log("[+] Failed to create level.dat_old file with error: " + error);
+        return;
+    }
+}
+
+// END FUNCITONS //
+
+// BIGIN MAIN FUNTION //
+async function main() {
+
+    ConvertlvlFile(inputlvlFile).then( compressedFileContents => {
+        lvldatToOld(compressedFileContents);
+    });
+
+
+
+    fs.readdir(inputFolderChunks, (err, files) => {
+        if(err) throw err;
+    
+        let totalFiles = files.length;
+    
+        console.log(`[~] Updating ${totalFiles} chunk files ...`);
+    
+        files.forEach(file => {
+            ConvertChunkDataFromFile(inputFolderChunks + file).then( (data) => {
+                StoreData(
+                    data["folderPath"],
+                    data["filename"],
+                    data["fileContents"]
+                ).then( () => {totalFiles--;} );
+            });
+        });
+    
+        if (totalFiles < 5) {
+            console.log(`[+] Successfully updated chunk files ...`);
+        }
+    
+    });
+
+}
+// END MAIN FUNTION //
+
 
 let inputFolder       = './input/';
-let inputFolderChunks = inputFolder + "/c0/";
+let inputFolderChunks = inputFolder + "c0/";
+let inputlvlFile      = inputFolder + "lvl";
 
-let outputFolder = './output/'
+let outputFolder = './output/';
 
 if (!fs.existsSync(outputFolder)){
 
     fs.mkdirSync(outputFolder, { recursive: true });
 
 } else {
-    console.log("[~] Removing old files ...");
+    console.log("[~] Removing all old files ...");
 
     fs.rmSync(outputFolder, { recursive: true })
     fs.mkdirSync(outputFolder, { recursive: true });
@@ -94,27 +160,4 @@ if (!fs.existsSync(outputFolder)){
     console.log("[+] Removed all old files ...");
 }
 
-
-fs.readdir(inputFolderChunks, (err, files) => {
-    if(err) throw err;
-
-    let totalFiles = files.length;
-
-    console.log(`[~] Updating ${totalFiles} chunk files ...`);
-
-    files.forEach(file => {
-        ConvertChunkDataFromFile(inputFolderChunks + file).then( (data) => {
-            StoreChunkData(
-                data["folderPath"],
-                data["filename"],
-                data["fileContents"]
-            ).then( () => {totalFiles--;} );
-        });
-    });
-
-    if (totalFiles <= 0) {
-        console.log(`[+] Successfully updated chunk files ...`);
-    }
-
-});
-
+main();
