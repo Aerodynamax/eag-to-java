@@ -1,0 +1,20 @@
+{
+  "name": "eag-to-java",
+  "version": "1.0.0",
+  "description": "Eaglercraft to Minecraft: Java Edition beta 1.2",
+  "main": "SingleChunk.js",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "keywords": [
+    "Eaglercraft",
+    "EaglerTools",
+    "EaglerConverter"
+  ],
+  "author": "Aerodynamax",
+  "license": "ISC",
+  "dependencies": {
+    "@minecraft-js/nbt": "^1.1.0",
+    "binary-nbt": "^0.5.7"
+  }
+}
