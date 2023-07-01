@@ -103,6 +103,30 @@ async function lvldatToOld(compressedFileContents) {
     }
 }
 
+async function GenerateSessionLock() {
+    try {
+        const int64 = Date.now()   
+        const b = new Buffer.alloc(8)
+        const MAX_UINT32 = 0xFFFFFFFF
+
+        // write
+        const big = ~~(int64 / MAX_UINT32)
+        const low = (int64 % MAX_UINT32) - big
+
+        b.writeUInt32BE(big, 0)
+        b.writeUInt32BE(low, 4)
+
+        console.log(b)
+
+        fs.writeFileSync(`${outputFolder}session.lock`, b)
+
+        console.log("[+] Successfully created session.lock file!");
+    } catch (error) {
+        console.log("[+] Failed to create session.lock file with error: " + error);
+        return;
+    }
+}
+
 // END FUNCITONS //
 
 // BIGIN MAIN FUNTION //
@@ -112,7 +136,7 @@ async function main() {
         lvldatToOld(compressedFileContents);
     });
 
-
+    GenerateSessionLock();
 
     fs.readdir(inputFolderChunks, (err, files) => {
         if(err) throw err;
